@@ -231,8 +231,8 @@ class PenumbraDataCollector:
                 # Create temporary file with CA certificate content
                 temp_cert_file = tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False)
                 
-                # Ensure certificate has proper format
-                cert_content = self.indexer_ca_cert.strip()
+                # Ensure certificate has proper format - convert \n to actual newlines
+                cert_content = self.indexer_ca_cert.strip().replace('\\n', '\n')
                 if not cert_content.endswith('\n'):
                     cert_content += '\n'
                 
@@ -242,6 +242,13 @@ class PenumbraDataCollector:
                 
                 # Debug: check if file was written properly
                 logger.info(f"CA cert file created: {temp_cert_file.name}, size: {os.path.getsize(temp_cert_file.name)} bytes")
+                
+                # Debug: show first and last lines of certificate
+                with open(temp_cert_file.name, 'r') as f:
+                    lines = f.readlines()
+                    logger.info(f"Certificate first line: {lines[0].strip()}")
+                    logger.info(f"Certificate last line: {lines[-1].strip()}")
+                    logger.info(f"Total lines in certificate: {len(lines)}")
                 
                 # Try different SSL connection approaches
                 try:
