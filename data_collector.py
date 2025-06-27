@@ -230,11 +230,32 @@ class PenumbraDataCollector:
             if self.indexer_ca_cert:
                 # Create temporary file with CA certificate content
                 temp_cert_file = tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False)
-                temp_cert_file.write(self.indexer_ca_cert)
+                
+                # Ensure certificate has proper format
+                cert_content = self.indexer_ca_cert.strip()
+                if not cert_content.endswith('\n'):
+                    cert_content += '\n'
+                
+                temp_cert_file.write(cert_content)
                 temp_cert_file.flush()
                 temp_cert_file.close()
                 
-                conn = psycopg2.connect(self.indexer_endpoint, sslmode='verify-full', sslrootcert=temp_cert_file.name)
+                # Debug: check if file was written properly
+                logger.info(f"CA cert file created: {temp_cert_file.name}, size: {os.path.getsize(temp_cert_file.name)} bytes")
+                
+                # Try different SSL connection approaches
+                try:
+                    conn = psycopg2.connect(self.indexer_endpoint, sslmode='verify-full', sslrootcert=temp_cert_file.name)
+                    logger.info("Connected with verify-full SSL mode")
+                except Exception as ssl_error:
+                    logger.warning(f"verify-full failed: {ssl_error}, trying verify-ca")
+                    try:
+                        conn = psycopg2.connect(self.indexer_endpoint, sslmode='verify-ca', sslrootcert=temp_cert_file.name) 
+                        logger.info("Connected with verify-ca SSL mode")
+                    except Exception as ssl_error2:
+                        logger.warning(f"verify-ca failed: {ssl_error2}, trying require mode")
+                        conn = psycopg2.connect(self.indexer_endpoint, sslmode='require')
+                        logger.info("Connected with require SSL mode (no cert verification)")
             else:
                 conn = psycopg2.connect(self.indexer_endpoint)
             cursor = conn.cursor(cursor_factory=RealDictCursor)

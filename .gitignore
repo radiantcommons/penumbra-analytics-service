@@ -4,6 +4,7 @@ venv/
 
 # Environment variables
 .env
+cert_env_entry.txt
 # Python
 __pycache__/
 *.pyc
