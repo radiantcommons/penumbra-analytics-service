@@ -24,7 +24,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY *.py ./
-COPY ca-certificate.crt ./
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
@@ -37,7 +36,7 @@ EXPOSE 8080 8082
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8080/health', timeout=5)"
+    CMD python -c "import requests; requests.get('http://localhost:8082/health', timeout=5)"
 
 # Run the application
 CMD ["python", "main.py"]

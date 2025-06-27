@@ -7,6 +7,8 @@ import aiohttp
 import ssl
 import logging
 import time
+import tempfile
+import os
 from datetime import datetime
 from typing import Dict, Any, Optional
 import json
@@ -222,10 +224,17 @@ class PenumbraDataCollector:
     
     async def get_indexer_trading_data(self) -> Dict[str, Any]:
         """Get real trading data from pindexer"""
+        temp_cert_file = None
         try:
             # Connect to pindexer database
             if self.indexer_ca_cert:
-                conn = psycopg2.connect(self.indexer_endpoint, sslmode='verify-full', sslrootcert=self.indexer_ca_cert)
+                # Create temporary file with CA certificate content
+                temp_cert_file = tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False)
+                temp_cert_file.write(self.indexer_ca_cert)
+                temp_cert_file.flush()
+                temp_cert_file.close()
+                
+                conn = psycopg2.connect(self.indexer_endpoint, sslmode='verify-full', sslrootcert=temp_cert_file.name)
             else:
                 conn = psycopg2.connect(self.indexer_endpoint)
             cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -349,6 +358,13 @@ class PenumbraDataCollector:
         except Exception as e:
             logger.error(f"Error getting indexer trading data: {e}")
             return self.get_fallback_trading_data()
+        finally:
+            # Clean up temporary certificate file
+            if temp_cert_file and os.path.exists(temp_cert_file.name):
+                try:
+                    os.unlink(temp_cert_file.name)
+                except Exception:
+                    pass  # Ignore cleanup errors
     
     def get_fallback_trading_data(self) -> Dict[str, Any]:
         """Fallback trading data when indexer is unavailable"""
