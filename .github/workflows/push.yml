@@ -1,0 +1,37 @@
+name: push
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: run test on the code
+        run: echo "test complete"
+
+  push:
+    needs: test
+    uses: radiantcommons/actions-templates/.github/workflows/publish.yml@main
+
+  deploy:
+    needs: [test, push]
+    strategy:
+      matrix:
+        include:
+          - branch: dev
+            environment: ovh
+          - branch: main
+            environment: shared
+    uses: radiantcommons/actions-templates/.github/workflows/trigger-gitops.yml@main
+    with:
+      environment: ${{ matrix.environment }}
+      branch: ${{ matrix.branch }}
+    secrets:
+      GH_APP_ID: ${{ secrets.GH_APP_ID }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
