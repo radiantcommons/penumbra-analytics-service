@@ -24,11 +24,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY *.py ./
-COPY run.sh ./
 COPY ca-certificate.crt ./
-
-# Make run script executable
-RUN chmod +x run.sh
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
@@ -44,4 +40,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/health', timeout=5)"
 
 # Run the application
-CMD ["./run.sh"]
+CMD ["python", "main.py"]
