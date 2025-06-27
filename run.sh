@@ -21,6 +21,7 @@ else
         python3 -m venv venv
     fi
 
+
     # Activate virtual environment
     echo "🔧 Activating virtual environment..."
     source venv/bin/activate
