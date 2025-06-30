@@ -76,6 +76,37 @@ class PenumbraAnalyticsService:
         except Exception as e:
             logger.error(f"Error sending Discord message: {e}")
     
+    def calculate_epoch_countdown(self, current_epoch: int, current_height: int) -> str:
+        """Calculate countdown to next epoch"""
+        try:
+            # Penumbra epoch durations:
+            # - Each epoch lasts approximately 24 hours (1440 minutes)
+            # - Blocks are produced roughly every 6 seconds
+            # - This gives us ~14,400 blocks per epoch
+            
+            BLOCKS_PER_EPOCH = 14400  # Approximate blocks per epoch
+            BLOCK_TIME_SECONDS = 6    # Average block time
+            
+            # Calculate position within current epoch
+            # This is an estimation based on block height modulo
+            blocks_in_current_epoch = current_height % BLOCKS_PER_EPOCH
+            blocks_remaining = BLOCKS_PER_EPOCH - blocks_in_current_epoch
+            
+            # Calculate time remaining
+            seconds_remaining = blocks_remaining * BLOCK_TIME_SECONDS
+            hours_remaining = seconds_remaining // 3600
+            minutes_remaining = (seconds_remaining % 3600) // 60
+            
+            # Format countdown string
+            if hours_remaining > 0:
+                return f"{hours_remaining}h {minutes_remaining}m"
+            else:
+                return f"{minutes_remaining}m"
+                
+        except Exception as e:
+            logger.error(f"Error calculating epoch countdown: {e}")
+            return "~24h"  # Fallback
+    
     def format_discord_message(self, data: Dict[str, Any]) -> str:
         """Format data into Discord message"""
         network = data['network']
@@ -88,10 +119,13 @@ class PenumbraAnalyticsService:
         # Calculate next update time
         next_update = datetime.now() + timedelta(hours=self.discord_interval_hours)
         
+        # Calculate epoch countdown (Penumbra epochs are ~24 hours)
+        epoch_countdown = self.calculate_epoch_countdown(network['current_epoch'], network.get('block_height', 0))
+        
         message = f"""🌟 **Penumbra Network Status Update**
 
 📊 **Network Health**
-• Current Epoch: **{network['current_epoch']}**
+• Current Epoch: **{network['current_epoch']}** (Next in: **{epoch_countdown}**)
 • Block Height: **{network['block_height']:,}**
 • Network Uptime: **{network['network_uptime_percentage']:.1f}%**
 
