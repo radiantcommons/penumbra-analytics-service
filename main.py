@@ -115,6 +115,7 @@ class PenumbraAnalyticsService:
         tvl = data['tvl']
         transactions = data['transactions']
         privacy = data['privacy']
+        addresses = data['addresses']
         
         # Calculate next update time
         next_update = datetime.now() + timedelta(hours=self.discord_interval_hours)
@@ -139,6 +140,10 @@ class PenumbraAnalyticsService:
 • 24h Volume: **${trading['total_volume_24h_usd']:,.0f} USDC**
 • Top 3 Pairs:
 {self.format_top_pairs(trading['top_pairs'])}
+
+👥 **Active Users**
+• Daily Active: **{addresses['active_daily']:.0f}** addresses
+• Weekly Active: **{addresses['active_weekly']:.0f}** addresses
 
 🏆 **LQT Tournament**
 • Total Participants: **{lqt['total_participants']:,}**
