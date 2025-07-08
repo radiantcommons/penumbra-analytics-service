@@ -38,21 +38,21 @@ class PenumbraDataCollector:
     
     def get_pair_display_name(self, asset_start_hex: str, asset_end_hex: str) -> str:
         """Convert asset hex IDs to readable pair names"""
-        # Known asset ID prefixes (first 8 characters) - based on real Penumbra DEX data
         known_assets = {
-            # Based on the real DEX interface screenshot
-            "29ea9c2f": "UM",      # UM/USDC is the top pair
-            "76b3e4b1": "USDC",   # USDC pairs
-            "414e723f": "allBTC", # allBTC/UM is second top pair
-            "000000": "OSMO",     # OSMO pairs visible
-            "c9c1e3": "CDT",      # CDT/USDC visible
-            "a1b2c3": "TIA",      # TIA/USDC visible
-            "d4e5f6": "ATOM",     # ATOM/UM visible
+            "29ea9c2f3371f6a487e7e95c247041f4a356f983eb064e5d2b3bcf322ca96a10": "UM",
+            "76b3e4b10681358c123b381f90638476b7789040e47802de879f0fb3eedc8d0b": "USDC",
+            "5314b33eecfd5ca2e99c0b6d1e0ccafe3d2dd581c952d814fb64fdf51f85c411": "allBTC",
         }
         
-        # Try to map to known symbols
-        start_symbol = known_assets.get(asset_start_hex, f"{asset_start_hex}...")
-        end_symbol = known_assets.get(asset_end_hex, f"{asset_end_hex}...")
+        start_symbol = known_assets.get(asset_start_hex)
+        if not start_symbol:
+            start_prefix = asset_start_hex[:8] if asset_start_hex else "Unknown"
+            start_symbol = f"{start_prefix}..."
+            
+        end_symbol = known_assets.get(asset_end_hex)
+        if not end_symbol:
+            end_prefix = asset_end_hex[:8] if asset_end_hex else "Unknown"
+            end_symbol = f"{end_prefix}..."
         
         return f"{start_symbol}/{end_symbol}"
     
@@ -125,6 +125,8 @@ class PenumbraDataCollector:
                     "avg_block_time_seconds": 6,
                     "block_height": network_data.get('block_height', 0),
                     "current_epoch": network_data.get('current_epoch', 0),
+                    "epoch_ends_in_seconds": trading_data.get('epoch_ends_in_seconds', 0),
+                    "epoch_ends_in_hours": round(trading_data.get('epoch_ends_in_seconds', 0) / 3600, 1),
                     "network_uptime_percentage": 99.9
                 },
                 "prax_wallet": {
@@ -267,9 +269,8 @@ class PenumbraDataCollector:
                 conn = psycopg2.connect(self.indexer_endpoint)
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
-            # Get current epoch from lqt.summary table (same as veil service)
             cursor.execute("""
-                SELECT epoch
+                SELECT epoch, ends_in_s
                 FROM lqt.summary
                 ORDER BY epoch DESC
                 LIMIT 1
@@ -277,6 +278,7 @@ class PenumbraDataCollector:
             
             epoch_result = cursor.fetchone()
             current_epoch = epoch_result['epoch'] if epoch_result else 0
+            epoch_ends_in_seconds = epoch_result['ends_in_s'] if epoch_result else 0
             
             # Get real LQT participant count
             cursor.execute("""
@@ -306,7 +308,6 @@ class PenumbraDataCollector:
             staking_result = cursor.fetchone()
             total_voting_power = staking_result['total_voting_power'] if staking_result else 0
             
-            # Get real active addresses from recent LQT voting epochs
             cursor.execute("""
                 SELECT COUNT(DISTINCT address) as recent_active_addresses
                 FROM lqt._votes
@@ -316,8 +317,6 @@ class PenumbraDataCollector:
             recent_addresses_result = cursor.fetchone()
             real_recent_addresses = recent_addresses_result['recent_active_addresses'] if recent_addresses_result else 0
             
-            # Use the EXACT same approach as veil service (stats.ts)
-            # First get aggregate stats from dex_ex_aggregate_summary
             cursor.execute("""
                 SELECT direct_volume, liquidity, trades, active_pairs
                 FROM dex_ex_aggregate_summary
@@ -326,7 +325,6 @@ class PenumbraDataCollector:
             
             aggregate_result = cursor.fetchone()
             
-            # Then get individual pairs for top pairs display
             cursor.execute("""
                 SELECT
                     ENCODE(asset_start, 'hex') as asset_start_hex,
@@ -342,9 +340,7 @@ class PenumbraDataCollector:
             
             pairs_data = cursor.fetchall()
             
-            # Use aggregate data like veil service (exact same approach as stats.ts)
             if aggregate_result:
-                # Use pnum().toAmount() equivalent conversion (divide by 1e6 for USDC)
                 total_volume = float(aggregate_result['direct_volume']) / 1_000_000 if aggregate_result['direct_volume'] else 0
                 total_liquidity = float(aggregate_result['liquidity']) / 1_000_000 if aggregate_result['liquidity'] else 0
                 active_pairs_count = aggregate_result['active_pairs'] if aggregate_result['active_pairs'] else 0
@@ -353,16 +349,14 @@ class PenumbraDataCollector:
                 total_liquidity = 0
                 active_pairs_count = 0
             
-            # Format individual trading pairs for display
             top_pairs = []
             for pair in pairs_data:
-                volume_value = float(pair['total_volume']) / 10_240_000 if pair['total_volume'] else 0
+                volume_value = float(pair['total_volume']) / 1_000_000 if pair['total_volume'] else 0
                 volume_str = f"{volume_value:,.1f} USDC" if volume_value else "0 USDC"
                 
-                # Create better pair names from asset hex IDs
-                asset_start = pair['asset_start_hex'][:8] if pair['asset_start_hex'] else "Unknown"
-                asset_end = pair['asset_end_hex'][:8] if pair['asset_end_hex'] else "Unknown"
-                pair_name = self.get_pair_display_name(asset_start, asset_end)
+                asset_start_hex = pair['asset_start_hex'] if pair['asset_start_hex'] else "Unknown"
+                asset_end_hex = pair['asset_end_hex'] if pair['asset_end_hex'] else "Unknown"
+                pair_name = self.get_pair_display_name(asset_start_hex, asset_end_hex)
                 
                 top_pairs.append({
                     "name": pair_name,
@@ -382,16 +376,17 @@ class PenumbraDataCollector:
                 'top_pairs': top_pairs,
                 'total_volume_24h': total_volume,
                 'dex_tvl': dex_tvl,
-                'lqt_total_participants': real_lqt_participants,  # Real data: 55
-                'lqt_active_24h': min(real_lqt_participants, len(top_pairs) * 5),  # Realistic estimate
-                'lqt_volume_24h': total_volume * 0.8,  # 80% of volume from LQT
-                'active_addresses_daily': real_recent_addresses,  # Real addresses from recent epochs
-                'active_addresses_weekly': real_lqt_participants,  # Total LQT participants as weekly
+                'lqt_total_participants': real_lqt_participants,
+                'lqt_active_24h': min(real_lqt_participants, len(top_pairs) * 5),
+                'lqt_volume_24h': total_volume * 0.8,
+                'active_addresses_daily': real_recent_addresses,
+                'active_addresses_weekly': real_lqt_participants,
                 'trading_pairs_count': len(top_pairs),
                 'unique_asset_types': min(20, len(top_pairs) * 2),
-                'current_epoch': current_epoch,  # Real data from database
-                'active_validators': real_active_validators,  # Real data: 104
-                'total_voting_power': total_voting_power  # Real voting power in UM
+                'current_epoch': current_epoch,
+                'epoch_ends_in_seconds': float(epoch_ends_in_seconds) if epoch_ends_in_seconds else 0,
+                'active_validators': real_active_validators,
+                'total_voting_power': total_voting_power
             }
             
         except Exception as e:
