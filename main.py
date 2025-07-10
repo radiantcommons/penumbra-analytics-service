@@ -114,7 +114,6 @@ class PenumbraAnalyticsService:
         lqt = data['lqt']
         tvl = data['tvl']
         transactions = data['transactions']
-        privacy = data['privacy']
         addresses = data['addresses']
         
         # Calculate next update time
@@ -153,10 +152,6 @@ class PenumbraAnalyticsService:
 ⚡ **Network Activity**
 • Transactions (24h): **{transactions['total_24h']}**
 • Tx Rate: **{transactions['per_minute']}/min**
-
-🔒 **Privacy (MVAS)**
-• MVAS Adoption: **{privacy['mvas_percentage']:.1f}%**
-• Private Volume (24h): **${privacy['mvas_volume_24h_usd']:,.0f}**
 
 ⏰ **Next Update:** {next_update.strftime('%H:%M UTC')} ({self.discord_interval_hours}h)
 

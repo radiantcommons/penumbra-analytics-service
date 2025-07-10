@@ -47,10 +47,6 @@ class MetricsServer:
         self.lqt_participants_24h = Gauge('penumbra_lqt_participants_24h', 'Active LQT participants in 24h')
         self.lqt_volume_24h = Gauge('penumbra_lqt_volume_24h_usd', 'LQT volume in 24h USD')
         
-        # Privacy metrics
-        self.mvas_percentage = Gauge('penumbra_mvas_percentage', 'MVAS adoption percentage')
-        self.mvas_volume_24h = Gauge('penumbra_mvas_volume_24h_usd', 'MVAS volume in 24h USD')
-        
         # Staking metrics
         self.active_validators = Gauge('penumbra_active_validators', 'Number of active validators')
         self.total_staked_um = Gauge('penumbra_total_staked_um', 'Total staked UM')
@@ -94,10 +90,6 @@ class MetricsServer:
             self.lqt_participants_total.set(data['lqt']['total_participants'])
             self.lqt_participants_24h.set(data['lqt']['active_participants_24h'])
             self.lqt_volume_24h.set(data['lqt']['volume_24h_usd'])
-            
-            # Privacy metrics
-            self.mvas_percentage.set(data['privacy']['mvas_percentage'])
-            self.mvas_volume_24h.set(data['privacy']['mvas_volume_24h_usd'])
             
             # Staking metrics
             self.active_validators.set(data['staking']['active_validators'])

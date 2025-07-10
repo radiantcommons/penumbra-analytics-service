@@ -136,12 +136,6 @@ class PenumbraDataCollector:
                     "downloads_total": 1580,
                     "downloads_weekly": 53
                 },
-                "privacy": {
-                    "mvas_count_24h": trading_data.get('mvas_count_24h', 0),
-                    "mvas_percentage": 15.5,
-                    "mvas_volume_24h_usd": trading_data.get('mvas_volume_24h', 0),
-                    "privacy_adoption_rate": 0
-                },
                 "staking": {
                     "active_validators": network_data.get('active_validators', 0),
                     "staking_percentage": 0,
